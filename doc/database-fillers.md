@@ -30,6 +30,8 @@ Use SIGINT or SIGTERM to stop.
 | RocksDB fill          | PostgreSQL fill           | Default               | Description |
 |---------------------  |-------------------------- |--------------------   |-------------|
 | --fill-connect-to     | --fill-connect-to         | 127.0.0.1:8080        | state-history-plugin endpoint to connect to |
+| --fill-max-messages-in-flight | --fill-max-messages-in-flight | 1024          | maximum number of unacknowledged SHiP block messages; must be between 1 and 4096 |
+| --fill-ack-batch-size | --fill-ack-batch-size      | 256                   | acknowledge SHiP block messages after this many have been successfully processed; must not exceed the in-flight limit |
 |                       | --pg-schema               | chain                 | schema to use |
 | --rdb-database        |                           |                       | database path |
 | --rdb-threads         |                           |                       | Increase number of background RocksDB threads. Recommend 8 for full history on large chains |

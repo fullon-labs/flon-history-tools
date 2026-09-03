@@ -1,6 +1,7 @@
 // copyright defined in LICENSE.txt
 
 #include "fill_plugin.hpp"
+#include "ship_flow_control.hpp"
 #include "util.hpp"
 #include <eosio/ship_protocol.hpp>
 
@@ -19,6 +20,10 @@ void fill_plugin::set_program_options(options_description& cli, options_descript
     auto op   = cfg.add_options();
     auto clop = cli.add_options();
     op("fill-connect-to,f", bpo::value<std::string>()->default_value("127.0.0.1:8080"), "State-history endpoint to connect to (nodeos)");
+    op("fill-max-messages-in-flight", bpo::value<uint32_t>()->default_value(state_history::default_max_messages_in_flight),
+       "Maximum unacknowledged SHiP block messages (1-4096)");
+    op("fill-ack-batch-size", bpo::value<uint32_t>()->default_value(state_history::default_ack_batch_size),
+       "Acknowledge SHiP block messages after this many are successfully processed");
     op("fill-trim,t", "Trim history before irreversible");
     clop("fill-skip-to,k", bpo::value<uint32_t>(), "Skip blocks before [arg]");
     clop("fill-stop,x", bpo::value<uint32_t>(), "Stop before block [arg]");

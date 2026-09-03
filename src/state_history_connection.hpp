@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ship_flow_control.hpp"
 #include "state_history.hpp"
 #include <eosio/check.hpp>
 #include <eosio/ship_protocol.hpp>
@@ -14,6 +15,9 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <fc/exception/exception.hpp>
 #include <abieos.hpp>
+
+#include <deque>
+#include <type_traits>
 
 namespace state_history {
 
@@ -31,6 +35,8 @@ struct connection_callbacks {
 struct connection_config {
     std::string host;
     std::string port;
+    uint32_t    max_messages_in_flight = default_max_messages_in_flight;
+    uint32_t    ack_batch_size          = default_ack_batch_size;
 };
 
 struct connection : std::enable_shared_from_this<connection> {
@@ -46,6 +52,8 @@ struct connection : std::enable_shared_from_this<connection> {
     std::shared_ptr<connection_callbacks>        callbacks;
     tcp::resolver                                resolver;
     boost::beast::websocket::stream<tcp::socket> stream;
+    ship_flow_control                            flow_control;
+    std::deque<std::shared_ptr<std::vector<char>>> write_queue;
     bool                                         have_abi  = false;
     bool                                         have_get_blocks_request_v1 = false;
     abi_def                                      abi                       = {};
@@ -55,7 +63,8 @@ struct connection : std::enable_shared_from_this<connection> {
         : config(config)
         , callbacks(callbacks)
         , resolver(ioc)
-        , stream(ioc) {
+        , stream(ioc)
+        , flow_control(config.max_messages_in_flight, config.ack_batch_size) {
 
         stream.binary(true);
         stream.read_message_max(10ull * 1024 * 1024 * 1024);
@@ -124,15 +133,25 @@ struct connection : std::enable_shared_from_this<connection> {
         input_buffer                 bin{(const char*)data.data(), (const char*)data.data() + data.size()};
         eosio::ship_protocol::result result;
         from_bin(result, bin);
-        return callbacks && std::visit([&](auto& r) { return callbacks->received(r); }, result);
+        return callbacks && std::visit(
+                                [&](auto& r) {
+                                    auto keep_reading = callbacks->received(r);
+                                    if (keep_reading && is_blocks_result(r))
+                                        acknowledge_processed_message();
+                                    return keep_reading;
+                                },
+                                result);
     }
 
     void request_blocks(uint32_t start_block_num, const std::vector<eosio::ship_protocol::block_position>& positions) {
+        flow_control.reset();
+        ilog("request blocks with max ${m} messages in flight and ACK batch size ${a}",
+             ("m", flow_control.max_messages_in_flight())("a", config.ack_batch_size));
         if (have_get_blocks_request_v1) {
             eosio::ship_protocol::get_blocks_request_v1 req;
             req.start_block_num        = start_block_num;
             req.end_block_num          = 0xffff'ffff;
-            req.max_messages_in_flight = 0xffff'ffff;
+            req.max_messages_in_flight = flow_control.max_messages_in_flight();
             req.have_positions         = positions;
             req.irreversible_only      = false;
             req.fetch_block            = true;
@@ -145,7 +164,7 @@ struct connection : std::enable_shared_from_this<connection> {
             eosio::ship_protocol::get_blocks_request_v0 req;
             req.start_block_num        = start_block_num;
             req.end_block_num          = 0xffff'ffff;
-            req.max_messages_in_flight = 0xffff'ffff;
+            req.max_messages_in_flight = flow_control.max_messages_in_flight();
             req.have_positions         = positions;
             req.irreversible_only      = false;
             req.fetch_block            = true;
@@ -169,9 +188,34 @@ struct connection : std::enable_shared_from_this<connection> {
     void send(const eosio::ship_protocol::request& req) {
         auto bin = std::make_shared<std::vector<char>>();
         eosio::convert_to_bin(req, *bin);
+        auto write_in_progress = !write_queue.empty();
+        write_queue.push_back(std::move(bin));
+        if (!write_in_progress)
+            start_write();
+    }
+
+    void start_write() {
+        auto bin = write_queue.front();
         stream.async_write(boost::asio::buffer(*bin), [self = shared_from_this(), bin, this](error_code ec, size_t) {
-            enter_callback(ec, "async_write", [&] {});
+            enter_callback(ec, "async_write", [&] {
+                write_queue.pop_front();
+                if (!write_queue.empty())
+                    start_write();
+            });
         });
+    }
+
+    template <typename T>
+    static constexpr bool is_blocks_result(const T&) {
+        using result_type = std::decay_t<T>;
+        return std::is_same_v<result_type, eosio::ship_protocol::get_blocks_result_v0> ||
+               std::is_same_v<result_type, eosio::ship_protocol::get_blocks_result_v1>;
+    }
+
+    void acknowledge_processed_message() {
+        auto num_messages = flow_control.on_message_processed();
+        if (num_messages)
+            send(eosio::ship_protocol::get_blocks_ack_request_v0{num_messages});
     }
 
     template <typename F>

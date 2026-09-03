@@ -852,13 +852,16 @@ void fill_rocksdb_plugin::plugin_initialize(const variables_map& options) {
 
         auto port                = endpoint.substr(endpoint.find(':') + 1, endpoint.size());
         auto host                = endpoint.substr(0, endpoint.find(':'));
-        my->config->host         = host;
-        my->config->port         = port;
-        my->config->skip_to      = options.count("fill-skip-to") ? options["fill-skip-to"].as<uint32_t>() : 0;
-        my->config->stop_before  = options.count("fill-stop") ? options["fill-stop"].as<uint32_t>() : 0;
-        my->config->trx_filters  = fill_plugin::get_trx_filters(options);
-        my->config->enable_trim  = options.count("fill-trim");
-        my->config->enable_check = options.count("frdb-check");
+        my->config->host                   = host;
+        my->config->port                   = port;
+        my->config->max_messages_in_flight = options.at("fill-max-messages-in-flight").as<uint32_t>();
+        my->config->ack_batch_size          = options.at("fill-ack-batch-size").as<uint32_t>();
+        ship_flow_control{my->config->max_messages_in_flight, my->config->ack_batch_size};
+        my->config->skip_to                = options.count("fill-skip-to") ? options["fill-skip-to"].as<uint32_t>() : 0;
+        my->config->stop_before            = options.count("fill-stop") ? options["fill-stop"].as<uint32_t>() : 0;
+        my->config->trx_filters            = fill_plugin::get_trx_filters(options);
+        my->config->enable_trim            = options.count("fill-trim");
+        my->config->enable_check           = options.count("frdb-check");
     }
     FC_LOG_AND_RETHROW()
 }

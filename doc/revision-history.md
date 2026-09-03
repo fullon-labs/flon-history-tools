@@ -14,6 +14,12 @@ future. Some of these may be driven by community feedback.
 
 This release includes the following:
 
+## 0.8.0-alpha
+
+This release adds bounded SHiP flow control for compatibility with FullOn Core 0.8.0-alpha.
+Block requests default to 1024 messages in flight and return credits in batches of 256 after
+the corresponding messages have been successfully processed. Both values are configurable.
+
 ## Alpha 0.4.0
 
 This release upgrades `fill-pg` to support `nodeos` v2.1.0. The remaining tools are still disabled and have not been upgraded.
