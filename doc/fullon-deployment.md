@@ -20,7 +20,41 @@ When `funod` runs on the Docker host, the container can use `host.docker.interna
 
 For complete transaction history, the node must retain trace history from the first block that `fill-pg` needs. Starting from a snapshot does not recreate SHiP data from earlier blocks. Do not prune the required SHiP log range.
 
-## 2. Prepare deployment files
+## 2. Configure fill-pg
+
+The native `fill-pg` configuration for a testnet deployment is:
+
+```ini
+fill-connect-to = funod-testnet:19555
+fill-max-messages-in-flight = 1024
+fill-ack-batch-size = 256
+pg-schema = flon_testnet
+```
+
+`fill-connect-to` must point to the `funod` SHiP port. It must not point to the HTTP RPC port. The hostname `funod-testnet` works only when it is resolvable and reachable from the `fill-pg` container, such as when both services share a Docker network. When `funod` runs directly on the Docker host, use `host.docker.internal:19555` instead.
+
+The Compose environment variables map to the native options as follows:
+
+| Compose variable | Native `fill-pg` option | Default/example |
+| ---------------- | ----------------------- | --------------- |
+| `SHIP_ENDPOINT` | `fill-connect-to` | `funod-testnet:19555` |
+| `FILL_MAX_MESSAGES_IN_FLIGHT` | `fill-max-messages-in-flight` | `1024` |
+| `FILL_ACK_BATCH_SIZE` | `fill-ack-batch-size` | `256` |
+| `HISTORY_SCHEMA` | `pg-schema` | `flon_testnet` |
+
+The equivalent command for an existing schema is:
+
+```bash
+fill-pg \
+  --fill-connect-to=funod-testnet:19555 \
+  --fill-max-messages-in-flight=1024 \
+  --fill-ack-batch-size=256 \
+  --pg-schema=flon_testnet
+```
+
+Add `--fpg-create` only when creating the schema for the first time. The provided Compose startup wrapper performs this check automatically.
+
+## 3. Prepare deployment files
 
 Clone the release and initialize its build dependencies:
 
@@ -50,7 +84,7 @@ Recommended schema names:
 | Mainnet | `flon_mainnet` |
 | Testnet | `flon_testnet` |
 
-## 3. Start the stack
+## 4. Start the stack
 
 Build the checked-out source and start PostgreSQL plus `fill-pg`:
 
@@ -76,7 +110,7 @@ docker compose --env-file .env pull
 docker compose --env-file .env up -d --no-build
 ```
 
-## 4. SHiP flow-control settings
+## 5. SHiP flow-control settings
 
 The defaults are suitable for normal operation with FullOn Core 0.8.0-alpha:
 
@@ -95,7 +129,7 @@ The limit counts messages, not bytes. For a slow PostgreSQL server or memory-con
 
 ACK credits are returned only after the corresponding SHiP result has been processed successfully. A database processing failure therefore cannot acknowledge data that was not committed.
 
-## 5. Full history and trimmed history
+## 6. Full history and trimmed history
 
 For flonscan or any service that needs complete historical transactions, keep:
 
@@ -107,7 +141,7 @@ Set `FILL_TRIM=true` only when retaining history before the irreversible block i
 
 The Compose stack never passes `--fpg-drop`. To rebuild intentionally, take a database backup first and perform the destructive operation manually against the exact schema.
 
-## 6. Mainnet and testnet on one host
+## 7. Mainnet and testnet on one host
 
 Use separate environment files, secrets, Compose project names, and PostgreSQL volumes:
 
@@ -118,7 +152,7 @@ docker compose -p flon-history-testnet --env-file .env.testnet up -d --build
 
 Do not run multiple `fill-pg` writers against the same schema.
 
-## 7. Health and synchronization checks
+## 8. Health and synchronization checks
 
 The container health check reads `fill_status.head`. It becomes unhealthy when the head does not advance for `HISTORY_STALE_SECONDS`, which defaults to 90 seconds. This is intentionally longer than FullOn's possible 12-second idle block interval.
 
@@ -138,7 +172,7 @@ Docker Compose reports an unhealthy container but does not automatically restart
 
 Network-level SHiP failures retry internally. A process can remain alive after some downstream processing failures, so monitoring only the container process is insufficient; alert on synchronization progress as well.
 
-## 8. Persistence, backup, and security
+## 9. Persistence, backup, and security
 
 - PostgreSQL data is stored in the named volume `history-postgres-data` scoped by the Compose project name.
 - The PostgreSQL port is not published to the host.
