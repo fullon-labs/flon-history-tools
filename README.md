@@ -1,5 +1,7 @@
 # Description
 
+For the FullOn Core 0.8.0-alpha PostgreSQL deployment, see the [FullOn deployment guide](doc/fullon-deployment.md).
+
 This release contains the first release of EOSIO History-Tools `fill-pg` v1.0.0 and is compatible with EOSIO v2.1.0. All other tools included in the prior alpha releases of History-Tools are now deprecated.
 
 ## docker image

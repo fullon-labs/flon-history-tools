@@ -1,53 +1,75 @@
-version: "3.3"
+name: flon-history-tools
 
 services:
-  nodeos:
-    image: docker.io/eosio/eosio:${DOCKER_EOSIO_TAG:-develop}
-    command:
-      - nodeos
-      - --plugin
-      - eosio::producer_plugin
-      - --plugin
-      - eosio::chain_api_plugin
-      - --plugin
-      - eosio::http_plugin
-      - --plugin
-      - eosio::producer_api_plugin
-      - --chain-state-db-size-mb
-      - "65536"
-      - --plugin
-      - eosio::state_history_plugin
-      - --state-history-endpoint
-      - 0.0.0.0:8080
-      - --trace-history
-      - --chain-state-history
-      - --disable-replay-opts
-      - --p2p-peer-address=${PEER_ADDR:-seed.testnet.eos.io:9876}
-      - --snapshot
-      - /snapshots/snapshot.bin
-    volumes:
-      - type: bind
-        source: ${SNAPSHOT_FILE:-./snapshot.bin}
-        target: /snapshots/snapshot.bin
   postgres:
-    image: postgres
+    image: ${POSTGRES_IMAGE:-postgres:15-bookworm}
+    restart: unless-stopped
     environment:
-      - POSTGRES_PASSWORD=password
+      POSTGRES_DB: ${POSTGRES_DB:-flon_history}
+      POSTGRES_USER: ${POSTGRES_USER:-flon_history}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - history-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      options:
+        max-size: 100m
+        max-file: "5"
+
   fill-pg:
-    image: eosio/history-tools:${GIT_SHORT_HASH:-latest}
-    command: >
-      /bin/sh -c "
-        echo Waiting for nodeos service start...;
-        while ! nc -z nodeos 8080; do
-          sleep 1;
-        done;
-        fill-pg --fpg-create --fill-connect-to=nodeos:8080
-      "
+    image: ${HISTORY_TOOLS_IMAGE:-ghcr.io/fullon-labs/floncore/history-tools:0.8.0-alpha}
+    build:
+      context: .
+      args:
+        VERSION_STRING: ${HISTORY_TOOLS_VERSION:-0.8.0-alpha}
+    restart: unless-stopped
+    command: ["/usr/local/bin/start-fill-pg"]
     environment:
-      - PGUSER=postgres
-      - PGPASSWORD=password 
-      - PGHOST=postgres
-    restart: on-failure
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-flon_history}
+      PGUSER: ${POSTGRES_USER:-flon_history}
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      PGCONNECT_TIMEOUT: "5"
+      SHIP_ENDPOINT: ${SHIP_ENDPOINT:?set SHIP_ENDPOINT to the internal funod SHiP host and port}
+      HISTORY_SCHEMA: ${HISTORY_SCHEMA:?set HISTORY_SCHEMA to a chain-specific PostgreSQL schema}
+      FILL_MAX_MESSAGES_IN_FLIGHT: ${FILL_MAX_MESSAGES_IN_FLIGHT:-1024}
+      FILL_ACK_BATCH_SIZE: ${FILL_ACK_BATCH_SIZE:-256}
+      FILL_TRIM: ${FILL_TRIM:-false}
+      HISTORY_STALE_SECONDS: ${HISTORY_STALE_SECONDS:-90}
+    secrets:
+      - postgres_password
     depends_on:
-      - postgres
-      - nodeos
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck-fill-pg"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    logging:
+      options:
+        max-size: 100m
+        max-file: "5"
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:-./secrets/postgres_password}
+
+volumes:
+  history-postgres-data:

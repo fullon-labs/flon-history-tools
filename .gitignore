@@ -8,6 +8,10 @@ package-lock.json
 _book
 *.o
 /CMakeLists.txt.user
+.env
+.env.*
+!.env.example
+/secrets/
 .cicd/helpers/docker-compose.yaml
 .cicd/helpers/snapshot.bin
 

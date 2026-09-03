@@ -3,6 +3,10 @@ _book
 .DS_Store
 .git
 .vscode
+.env
+.env.*
+!.env.example
+secrets
 *.dockerfile
 *.o
 *.rocksdb

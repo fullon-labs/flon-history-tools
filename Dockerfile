@@ -54,3 +54,6 @@ RUN apt-get update && \
     rm -rf /var/cache/apt/lists/*
 
 COPY --from=builder /root/history-tools/build/fill-pg /usr/local/bin/fill-pg
+COPY docker/start-fill-pg.sh /usr/local/bin/start-fill-pg
+COPY docker/healthcheck-fill-pg.sh /usr/local/bin/healthcheck-fill-pg
+RUN chmod 0755 /usr/local/bin/start-fill-pg /usr/local/bin/healthcheck-fill-pg
