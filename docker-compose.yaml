@@ -26,11 +26,11 @@ services:
         max-file: "5"
 
   fill-pg:
-    image: ${HISTORY_TOOLS_IMAGE:-ghcr.io/fullon-labs/floncore/history-tools:0.8.0-alpha}
+    image: ${HISTORY_TOOLS_IMAGE:-ghcr.io/fullon-labs/floncore/history-tools:0.8.1}
     build:
       context: .
       args:
-        VERSION_STRING: ${HISTORY_TOOLS_VERSION:-0.8.0-alpha}
+        VERSION_STRING: ${HISTORY_TOOLS_VERSION:-0.8.1}
     restart: unless-stopped
     command: ["/usr/local/bin/start-fill-pg"]
     environment:

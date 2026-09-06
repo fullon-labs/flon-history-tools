@@ -1,6 +1,6 @@
 # FullOn flon-history-tools Deployment
 
-This guide deploys `fill-pg` from flon-history-tools 0.8.0-alpha with PostgreSQL. The provided Compose stack expects an existing FullOn `funod` State History Plugin (SHiP) endpoint; it does not run a blockchain node.
+This guide deploys `fill-pg` from flon-history-tools 0.8.1 with PostgreSQL. The provided Compose stack expects an existing FullOn `funod` State History Plugin (SHiP) endpoint; it does not run a blockchain node.
 
 ## 1. Configure funod
 
@@ -173,7 +173,7 @@ Do not add `--volumes` to `docker compose down` unless deletion of the PostgreSQ
 
 ## 5. SHiP flow-control settings
 
-The defaults are suitable for normal operation with FullOn Core 0.8.0-alpha:
+The defaults are suitable for normal operation with FullOn Core 0.8.1:
 
 ```dotenv
 FILL_MAX_MESSAGES_IN_FLIGHT=1024
@@ -236,17 +236,17 @@ docker compose -p flon-history-testnet --env-file .env.testnet up -d --build
 
 Do not run multiple `fill-pg` writers against the same schema.
 
-## 8. Upgrade from 0.5.0 to 0.8.0-alpha
+## 8. Upgrade to 0.8.1
 
-The SHiP flow-control update does not change the PostgreSQL schema. An existing 0.5.0 database can resume with 0.8.0-alpha without dropping or rebuilding the schema.
+The SHiP flow-control update does not change the PostgreSQL schema. An existing 0.5.0 or 0.8.0-alpha database can resume with 0.8.1 without dropping or rebuilding the schema.
 
 Recommended upgrade workflow:
 
 1. Record the current `fill_status` row and take a PostgreSQL backup.
 2. Stop the old `fill-pg` process while leaving PostgreSQL and `funod` running.
-3. Pull or build flon-history-tools 0.8.0-alpha.
+3. Pull or build flon-history-tools 0.8.1.
 4. Set the in-flight window to at most 4096; the recommended values are 1024 and 256.
-5. Start 0.8.0-alpha against the same database and schema without `--fpg-create` and without `--fpg-drop`.
+5. Start 0.8.1 against the same database and schema without `--fpg-create` and without `--fpg-drop`.
 6. Confirm that `fill_status.head` continues from its previous value and catches up with the node.
 
 Example backup before upgrading a Compose testnet deployment:
@@ -254,7 +254,7 @@ Example backup before upgrading a Compose testnet deployment:
 ```bash
 docker compose --env-file .env exec -T postgres \
   pg_dump -U flon_history -d flon_history -n flon_testnet \
-  > flon_testnet_before_0.8.0-alpha.sql
+  > flon_testnet_before_0.8.1.sql
 ```
 
 If rollback is required, stop the new filler and restart the previous binary against the unchanged schema. Do not run old and new writers simultaneously.
@@ -294,7 +294,7 @@ Changing `POSTGRES_USER`, `POSTGRES_DB`, or the password after the PostgreSQL vo
 
 | Symptom | Likely cause | Check or action |
 | ------- | ------------ | --------------- |
-| `max_messages_in_flight exceeds the server limit` | Old client or a configured window above 4096 | Use flon-history-tools 0.8.0-alpha and set the window to 4096 or less |
+| `max_messages_in_flight exceeds the server limit` | Old client or a configured window above 4096 | Use flon-history-tools 0.8.1 and set the window to 4096 or less |
 | Connection refused on `fill-connect-to` | RPC port used instead of SHiP, wrong bind address, DNS, or firewall | Verify `state-history-endpoint`, container DNS, and private-network reachability |
 | Schema already exists during startup | `--fpg-create` was used on a routine restart | Remove `--fpg-create`; the Compose wrapper handles this automatically |
 | Schema exists but is not a valid fill-pg schema | Wrong `HISTORY_SCHEMA` or an unrelated/incomplete schema | Select the correct schema; do not drop it automatically |
@@ -306,7 +306,7 @@ Changing `POSTGRES_USER`, `POSTGRES_DB`, or the password after the PostgreSQL vo
 
 Before declaring the service ready, verify all of the following:
 
-- `funod` 0.8.0-alpha has `trace-history` enabled; enable `chain-state-history` when state-table history is required.
+- `funod` 0.8.1 has `trace-history` enabled; enable `chain-state-history` when state-table history is required.
 - `SHIP_ENDPOINT` resolves from inside the filler container and points to SHiP, not RPC.
 - Mainnet and testnet use different Compose project names, secrets, volumes, and schemas.
 - PostgreSQL data and password files are backed up and not committed to Git.

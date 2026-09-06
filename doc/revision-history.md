@@ -14,6 +14,12 @@ future. Some of these may be driven by community feedback.
 
 This release includes the following:
 
+## 0.8.1
+
+This stable release carries forward bounded SHiP flow control for compatibility with
+FullOn Core 0.8.1 and adds the production Compose deployment and operations workflow.
+It does not change the PostgreSQL schema used by 0.5.0 or 0.8.0-alpha.
+
 ## 0.8.0-alpha
 
 This release adds bounded SHiP flow control for compatibility with FullOn Core 0.8.0-alpha.
