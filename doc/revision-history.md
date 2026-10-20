@@ -14,6 +14,13 @@ future. Some of these may be driven by community feedback.
 
 This release includes the following:
 
+## 0.8.5
+
+This release synchronizes the FullOn deployment and container release with FullOn Core
+0.8.5. Core 0.8.5 does not change the SHiP wire protocol or the PostgreSQL schema used by
+`fill-pg`, so an existing 0.8.1 database can resume without a rebuild. Deployments should
+use the separately published `flon-node-history:v0.8.5` node image as their SHiP source.
+
 ## 0.8.1
 
 This stable release carries forward bounded SHiP flow control for compatibility with

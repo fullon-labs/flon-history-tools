@@ -1,13 +1,13 @@
 # Description
 
-For the FullOn Core 0.8.1 PostgreSQL deployment, see the [FullOn deployment guide](doc/fullon-deployment.md).
+For the FullOn Core 0.8.5 PostgreSQL deployment, see the [FullOn deployment guide](doc/fullon-deployment.md).
 
 This release contains the first release of EOSIO History-Tools `fill-pg` v1.0.0 and is compatible with EOSIO v2.1.0. All other tools included in the prior alpha releases of History-Tools are now deprecated.
 
 ## docker image
 
 ## 1. clone source code
-`git clone https://github.com/fullon/history-tools.git && cd history_tools && git submodule update --init --recursive`
+`git clone --recursive https://github.com/fullon-labs/flon-history-tools.git && cd flon-history-tools`
 
 ### 2. build local docker image
 `docker build -t fullon/amcsync2pg .`
